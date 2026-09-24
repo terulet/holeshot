@@ -1,0 +1,54 @@
+# Publica HOLESHOT en GitHub Pages en cada push a main:
+# pruebas -> build web -> Pages. Ademas deja como artefacto los paquetes
+# (zip de CrazyGames, zip web y HTML de un solo archivo).
+#
+# Requisito (una sola vez): Settings -> Pages -> Source: "GitHub Actions".
+name: Publicar HOLESHOT
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run release
+        env:
+          VITE_PUBLIC_URL: https://terulet.github.io/holeshot/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: holeshot-release
+          path: release/
+          if-no-files-found: error
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
